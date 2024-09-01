@@ -1,0 +1,30 @@
+# Example exclude file
+No-Intro/*(CDN)*
+No-Intro/*(Encrypted)*
+No-Intro/*(Headerless)*
+No-Intro/*(Hentai)*
+No-Intro/*(Development Kit Hard Drives)*
+No-Intro/*- SDKs
+No-Intro/Arcade - PC-based
+No-Intro/Audio CD
+No-Intro/CD-ROM
+No-Intro/DVD-ROM
+No-Intro/DVD-Video
+No-Intro/Fukutake Publishing - StudyBox
+No-Intro/Google - Android*
+No-Intro/HD DVD
+No-Intro/IBM - PC and Compatibles*
+No-Intro/Microsoft - Xbox 360*
+No-Intro/Nintendo - Kiosk Video Compact Flash*
+No-Intro/Nintendo - Misc
+No-Intro/Nintendo - Nintendo GameCube (NPDP Carts)
+No-Intro/Sony - PlayStation 3*
+No-Intro/Sony - *(PSN)*
+No-Intro/Non-Game - *
+No-Intro/Non-Redump - *
+No-Intro/Source Code - *
+No-Intro/Unofficial - *
+No-Intro/Video CD
+Miscellaneous
+Redump
+TOSEC*
