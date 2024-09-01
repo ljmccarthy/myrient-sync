@@ -29,9 +29,9 @@ class DirEntry:
 # Don't match paths with ..
 valid_path_re = re.compile(r'^((?!\.\./)[^/\\]+/)*(?!\.\./)[^/\\]+/?$')
 
-def list_dir(path) -> List[DirEntry]:
+def list_dir(session: requests.Session, path: str) -> List[DirEntry]:
     request_url = base_url + urllib.parse.quote(path)
-    response = requests.get(request_url)
+    response = session.get(request_url)
     if response.status_code != 200:
         raise Exception(f'Failed to fetch {base_url}')
     soup = BeautifulSoup(response.text, 'html.parser')
@@ -47,14 +47,14 @@ def list_dir(path) -> List[DirEntry]:
 
 nothing_re = re.compile('$^')
 
-def get_file_list(root_dir_path='/', exclude_re=nothing_re) -> List[str]:
+def get_file_list(session: requests.Session, root_dir_path='/', exclude_re=nothing_re) -> List[str]:
     dir_queue = collections.deque([root_dir_path])
     dirs_seen = set()
     file_paths = []
     while dir_queue:
         dir_path = dir_queue.popleft()
         print(dir_path)
-        for entry in list_dir(dir_path):
+        for entry in list_dir(session, dir_path):
             sub_path = dir_path + entry.name
             if sub_path.endswith('/'):
                 if sub_path not in dirs_seen and not exclude_re.match(sub_path):
@@ -65,14 +65,14 @@ def get_file_list(root_dir_path='/', exclude_re=nothing_re) -> List[str]:
     file_paths.sort()
     return file_paths
 
-def compile_exclude_patterns(patterns):
+def compile_exclude_patterns(patterns) -> re.Pattern:
     if not patterns:
         return nothing_re    
     return re.compile('|'.join('^/' + re.escape(pattern).replace(r'\*', '[^/]*') + '(?:/.*)?$' for pattern in patterns))
 
 exclude_file_ignore_line_re = re.compile(r'^\s*(?:#.*)?$')
 
-def get_exclude_re(args):
+def get_exclude_re(args) -> re.Pattern:
     excludes = list(args.exclude)
     for exclude_file in args.exclude_file:
         with open(exclude_file) as f:
@@ -81,7 +81,7 @@ def get_exclude_re(args):
                     excludes.append(line.rstrip())
     return compile_exclude_patterns(excludes)
 
-def format_size(size):
+def format_size(size: int) -> str:
     if size < 1024:
         return f'{size} B'
     elif size < 1024 * 1024:
@@ -94,7 +94,7 @@ class DownloadStatus(Enum):
     Skipped = 2
     Failed = 3
 
-def download_file(src_file_path, dest_dir):
+def download_file(session: requests.Session, src_file_path: str, dest_dir: str) -> DownloadStatus:
     dst_file_path = os.path.join(dest_dir, src_file_path.lstrip('/'))
     os.makedirs(os.path.dirname(dst_file_path), exist_ok=True)
     headers = {}
@@ -102,7 +102,7 @@ def download_file(src_file_path, dest_dir):
         modified_date = datetime.datetime.fromtimestamp(os.path.getmtime(dst_file_path))
         headers['If-Modified-Since'] = email.utils.format_datetime(modified_date)
     request_url = base_url + urllib.parse.quote(src_file_path)
-    response = requests.get(request_url, headers=headers, stream=True)
+    response = session.get(request_url, headers=headers, stream=True)
     if response.status_code == 200:
         content_length = int(response.headers.get('Content-Length', 0))
         last_modified = email.utils.parsedate_to_datetime(response.headers['Last-Modified'])
@@ -130,12 +130,11 @@ def download_file(src_file_path, dest_dir):
     else:
         return DownloadStatus.Failed
 
-def download_file_with_retry(src_file_path, dest_dir, num_retries=3, retry_delay=2):
+def download_file_with_retry(session, src_file_path, dest_dir, num_retries=3, retry_delay=0.5) -> DownloadStatus:
     for try_count in range(1, num_retries + 1):
-        status = download_file(src_file_path, dest_dir)
+        status = download_file(session, src_file_path, dest_dir)
         if status != DownloadStatus.Failed:
             return status
-        print(f'Retrying {src_file_path} ({try_count} of {num_retries})')
         time.sleep(retry_delay)
     print(f'Failed to download {src_file_path}')
     return DownloadStatus.Failed
@@ -144,12 +143,15 @@ def main():
     try:
         args = argparser.parse_args()
         exclude_re = get_exclude_re(args)
-        file_paths = get_file_list(exclude_re=exclude_re)
+        session = requests.Session()
+        session.headers['Accept'] = '*/*'
+        session.headers['Accept-Encoding'] = 'gzip, deflate'
+        file_paths = get_file_list(session, exclude_re=exclude_re)
         download_count = 0
         skipped_count = 0
         failed_count = 0
         for file_path in file_paths:
-            status = download_file_with_retry(file_path, args.destdir)
+            status = download_file_with_retry(session, file_path, args.destdir)
             if status == DownloadStatus.Success:
                 download_count += 1
             elif status == DownloadStatus.Skipped:
