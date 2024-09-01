@@ -7,9 +7,12 @@ import progress.bar
 import re
 import requests
 import sys
+import time
 import urllib.parse
 from bs4 import BeautifulSoup
 from dataclasses import dataclass
+from enum import Enum
+from typing import List
 
 argparser = argparse.ArgumentParser()
 argparser.add_argument('destdir', help='Destination directory')
@@ -23,7 +26,10 @@ class DirEntry:
     name: str
     date: datetime.datetime
 
-def list_dir(path):
+# Don't match paths with ..
+valid_path_re = re.compile(r'^((?!\.\./)[^/\\]+/)*(?!\.\./)[^/\\]+/?$')
+
+def list_dir(path) -> List[DirEntry]:
     request_url = base_url + urllib.parse.quote(path)
     response = requests.get(request_url)
     if response.status_code != 200:
@@ -32,15 +38,16 @@ def list_dir(path):
     result = []
     for td_tag in soup.find_all('td', class_='link'):
         for a_tag in td_tag.find_all('a', recursive=False):
-            if a_tag.has_attr('href') and '../' not in a_tag['href']:
+            if a_tag.has_attr('href'):
                 name = urllib.parse.unquote(a_tag['href'])
-                date = email.utils.parsedate_to_datetime(response.headers['Date'])
-                result.append(DirEntry(name=name, date=date))
+                if valid_path_re.match(name):
+                    date = email.utils.parsedate_to_datetime(response.headers['Date'])
+                    result.append(DirEntry(name=name, date=date))
     return result
 
 nothing_re = re.compile('$^')
 
-def get_file_list(root_dir_path='/', exclude_re=nothing_re):
+def get_file_list(root_dir_path='/', exclude_re=nothing_re) -> List[str]:
     dir_queue = collections.deque([root_dir_path])
     dirs_seen = set()
     file_paths = []
@@ -82,6 +89,11 @@ def format_size(size):
     else:
         return f'{size//1024//1024} MB'
 
+class DownloadStatus(Enum):
+    Success = 1
+    Skipped = 2
+    Failed = 3
+
 def download_file(src_file_path, dest_dir):
     dst_file_path = os.path.join(dest_dir, src_file_path.lstrip('/'))
     os.makedirs(os.path.dirname(dst_file_path), exist_ok=True)
@@ -111,12 +123,22 @@ def download_file(src_file_path, dest_dir):
         os.utime(tmp_file_path, (os.path.getatime(tmp_file_path), last_modified.timestamp()))
         # Rename the temporary file
         os.replace(tmp_file_path, dst_file_path)
-        return True
+        return DownloadStatus.Success
     elif response.status_code == 304:
         print(f'Skipping {src_file_path}')
-        return False
+        return DownloadStatus.Skipped
     else:
-        raise Exception(f'Failed to download {src_file_path}: status code {response.status_code}')
+        return DownloadStatus.Failed
+
+def download_file_with_retry(src_file_path, dest_dir, num_retries=3, retry_delay=2):
+    for try_count in range(1, num_retries + 1):
+        status = download_file(src_file_path, dest_dir)
+        if status != DownloadStatus.Failed:
+            return status
+        print(f'Retrying {src_file_path} ({try_count} of {num_retries})')
+        time.sleep(retry_delay)
+    print(f'Failed to download {src_file_path}')
+    return DownloadStatus.Failed
 
 def main():
     try:
@@ -124,15 +146,16 @@ def main():
         exclude_re = get_exclude_re(args)
         file_paths = get_file_list(exclude_re=exclude_re)
         download_count = 0
+        skipped_count = 0
         failed_count = 0
         for file_path in file_paths:
-            try:
-                if download_file(file_path, args.destdir):
-                    download_count += 1
-            except Exception as e:
-                print(f'Error: {e}')
+            status = download_file_with_retry(file_path, args.destdir)
+            if status == DownloadStatus.Success:
+                download_count += 1
+            elif status == DownloadStatus.Skipped:
+                skipped_count += 1
+            else:
                 failed_count += 1
-        skipped_count = len(file_paths) - download_count - failed_count
         print(f'Downloaded {download_count} files ({skipped_count} skipped, {failed_count} failed)')
         sys.exit(1 if failed_count > 0 else 0)
     except KeyboardInterrupt:
