@@ -122,10 +122,16 @@ def main():
         exclude_re = get_exclude_re(args)
         file_paths = get_file_list(exclude_re=exclude_re)
         download_count = 0
+        any_download_failed = False
         for file_path in file_paths:
-            if download_file(file_path, args.destdir):
-                download_count += 1
+            try:
+                if download_file(file_path, args.destdir):
+                    download_count += 1
+            except Exception as e:
+                print(f'Failed to download {file_path}: {e}')
+                any_download_failed = True
         print(f'Downloaded {download_count} files')
+        sys.exit(1 if any_download_failed else 0)
     except KeyboardInterrupt:
         print('Aborted')
         sys.exit(1)
