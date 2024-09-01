@@ -24,7 +24,8 @@ class DirEntry:
     date: datetime.datetime
 
 def list_dir(path):
-    response = requests.get(base_url + path)
+    request_url = base_url + urllib.parse.quote(path)
+    response = requests.get(request_url)
     if response.status_code != 200:
         raise Exception(f'Failed to fetch {base_url}')
     soup = BeautifulSoup(response.text, 'html.parser')
@@ -88,7 +89,8 @@ def download_file(src_file_path, dest_dir):
     if os.path.exists(dst_file_path):
         modified_date = datetime.datetime.fromtimestamp(os.path.getmtime(dst_file_path))
         headers['If-Modified-Since'] = email.utils.format_datetime(modified_date)
-    response = requests.get(base_url + src_file_path, headers=headers, stream=True)
+    request_url = base_url + urllib.parse.quote(src_file_path)
+    response = requests.get(request_url, headers=headers, stream=True)
     if response.status_code == 200:
         content_length = int(response.headers.get('Content-Length', 0))
         last_modified = email.utils.parsedate_to_datetime(response.headers['Last-Modified'])
@@ -128,7 +130,7 @@ def main():
                 if download_file(file_path, args.destdir):
                     download_count += 1
             except Exception as e:
-                print(f'Failed to download {file_path}: {e}')
+                print(f'Error: {e}')
                 failed_count += 1
         skipped_count = len(file_paths) - download_count - failed_count
         print(f'Downloaded {download_count} files ({skipped_count} skipped, {failed_count} failed)')
