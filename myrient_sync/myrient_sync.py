@@ -10,7 +10,6 @@ import sys
 import time
 import urllib.parse
 from bs4 import BeautifulSoup
-from dataclasses import dataclass
 from enum import Enum
 from typing import List
 
@@ -21,15 +20,10 @@ argparser.add_argument('--exclude-file', action='append', help='File containing 
 
 base_url = 'https://myrient.erista.me/files'
 
-@dataclass(frozen=True)
-class DirEntry:
-    name: str
-    date: datetime.datetime
-
 # Don't match paths with ..
 valid_path_re = re.compile(r'^((?!\.\./)[^/\\]+/)*(?!\.\./)[^/\\]+/?$')
 
-def list_dir(session: requests.Session, path: str) -> List[DirEntry]:
+def list_dir(session: requests.Session, path: str) -> List[str]:
     request_url = base_url + urllib.parse.quote(path)
     response = session.get(request_url)
     if response.status_code != 200:
@@ -41,8 +35,7 @@ def list_dir(session: requests.Session, path: str) -> List[DirEntry]:
             if a_tag.has_attr('href'):
                 name = urllib.parse.unquote(a_tag['href'])
                 if valid_path_re.match(name):
-                    date = email.utils.parsedate_to_datetime(response.headers['Date'])
-                    result.append(DirEntry(name=name, date=date))
+                    result.append(name)
     return result
 
 nothing_re = re.compile('$^')
@@ -54,8 +47,8 @@ def get_file_list(session: requests.Session, root_dir_path='/', exclude_re=nothi
     while dir_queue:
         dir_path = dir_queue.popleft()
         print(dir_path)
-        for entry in list_dir(session, dir_path):
-            sub_path = dir_path + entry.name
+        for filename in list_dir(session, dir_path):
+            sub_path = dir_path + filename
             if sub_path.endswith('/'):
                 if sub_path not in dirs_seen and not exclude_re.match(sub_path):
                     dirs_seen.add(sub_path)
