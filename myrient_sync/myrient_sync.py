@@ -125,9 +125,12 @@ def download_file(session: requests.Session, src_file_path: str, dest_dir: str) 
 
 def download_file_with_retry(session, src_file_path, dest_dir, num_retries=3, retry_delay=0.5) -> DownloadStatus:
     for try_count in range(1, num_retries + 1):
-        status = download_file(session, src_file_path, dest_dir)
-        if status != DownloadStatus.Failed:
-            return status
+        try:
+            status = download_file(session, src_file_path, dest_dir)
+            if status != DownloadStatus.Failed:
+                return status
+        except Exception as e:
+            print('Error: {e}')
         time.sleep(retry_delay)
     print(f'Failed to download {src_file_path}')
     return DownloadStatus.Failed
