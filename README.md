@@ -6,14 +6,19 @@
 
 ## Installation
 
-    $ python3 -m pip install .
+    $ pipx install .
 
 ## Usage
 
-    myrient-sync <destdir> [--exclude <exclude-pattern>] [--exclude-file <exclude-file>]
+    myrient-sync <destdir>
+        [--include <pattern>]
+        [--include-file <include-file>]
+        [--exclude <pattern>]
+        [--exclude-file <exclude-file>]
+        [--delete-unsynced]
 
-## Exclude Patterns
+## Include/exclude Patterns
 
-Exclude patterns support simple glob patterns using the `*` character.
+Patterns support simple glob patterns using the `*` character.
 
-Exclude files contain exclude patterns on separate lines and may include blank lines or comment lines starting with the `#` character. See [excludes.txt](excludes.txt) for an example exclude file.
+Include/exclude files contain patterns on separate lines and may include blank lines or comment lines starting with the `#` character. See [includes.txt](includes.txt) and [excludes.txt](excludes.txt) for an example.

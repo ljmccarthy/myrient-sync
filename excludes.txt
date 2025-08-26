@@ -7,25 +7,32 @@ No-Intro/*(Development Kit Hard Drives)*
 No-Intro/*- SDKs
 No-Intro/Arcade - PC-based
 No-Intro/Audio CD
+No-Intro/BD-Video
 No-Intro/CD-ROM
+No-Intro/CD+G
 No-Intro/DVD-ROM
 No-Intro/DVD-Video
+No-Intro/Enhanced CD
 No-Intro/Fukutake Publishing - StudyBox
 No-Intro/Google - Android*
 No-Intro/HD DVD
 No-Intro/IBM - PC and Compatibles*
+No-Intro/LeapFrog - *
 No-Intro/Microsoft - Xbox 360*
+No-Intro/MovieCD
+No-Intro/MP3 CD
 No-Intro/Nintendo - Kiosk Video Compact Flash*
 No-Intro/Nintendo - Misc
+No-Intro/Nintendo - Nintendo 3DS (Digital)*
 No-Intro/Nintendo - Nintendo GameCube (NPDP Carts)
-No-Intro/Sony - PlayStation 3*
-No-Intro/Sony - *(PSN)*
+No-Intro/Nintendo - Nintendo Music*
+No-Intro/Nintendo - Wii*
+No-Intro/Ouya - Ouya
+No-Intro/Panic - Playdate*
+No-Intro/Sony - *
 No-Intro/Non-Game - *
 No-Intro/Non-Redump - *
 No-Intro/Source Code - *
 No-Intro/Unofficial - *
 No-Intro/Video CD
-Internet Archive
-Miscellaneous
-Redump
-TOSEC*
+No-Intro/Web - *
