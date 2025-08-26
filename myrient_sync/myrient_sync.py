@@ -20,6 +20,7 @@ argparser.add_argument('--include', action='append', help='Include pattern', def
 argparser.add_argument('--include-file', action='append', help='File containing list of include patterns', default=[])
 argparser.add_argument('--exclude', action='append', help='Exclude pattern', default=[])
 argparser.add_argument('--exclude-file', action='append', help='File containing list of exclude patterns', default=[])
+argparser.add_argument('--delete-unsynced', action='store_true', help='Delete unsynced files in the destination directory')
 
 base_url = 'https://myrient.erista.me/files'
 
@@ -198,6 +199,34 @@ def get_exclude_re(args) -> re.Pattern:
                     excludes.append(line.rstrip())
     return compile_exclude_patterns(excludes)
 
+def dir_is_empty(path):
+    with os.scandir(path) as it:
+        return not any(it)
+
+def delete_unsynced(dest_dir: str, file_entries: List[FileEntry]):
+    synced_paths = frozenset(fe.path for fe in file_entries)
+    for root, dirs, files in os.walk(dest_dir, topdown=False):
+        for filename in files:
+            if not filename.startswith('.'):
+                file_path = os.path.join(root, filename)
+                rel_path = '/' + os.path.relpath(file_path, dest_dir).replace(os.path.sep, '/')
+                if rel_path not in synced_paths:
+                    print(f'Deleting {rel_path}')
+                    try:
+                        os.remove(file_path)
+                    except OSError as e:
+                        print(f'Error: Failed to delete {rel_path}: {e}')
+        for dirname in dirs:
+            if not dirname.startswith('.'):
+                dir_path = os.path.join(root, dirname)
+                if dir_is_empty(dir_path):
+                    rel_path = '/' + os.path.relpath(dir_path, dest_dir).replace(os.path.sep, '/')
+                    print(f'Deleting {rel_path}')
+                    try:
+                        os.rmdir(dir_path)
+                    except OSError as e:
+                        print(f'Error: Failed to delete directory {rel_path}: {e}')
+
 def main():
     try:
         args = argparser.parse_args()
@@ -218,6 +247,8 @@ def main():
                 skipped_count += 1
             else:
                 failed_count += 1
+        if args.delete_unsynced:
+            delete_unsynced(args.destdir, file_entries)
         print(f'Downloaded {download_count} files ({skipped_count} skipped, {failed_count} failed)')
         sys.exit(1 if failed_count > 0 else 0)
     except KeyboardInterrupt:
