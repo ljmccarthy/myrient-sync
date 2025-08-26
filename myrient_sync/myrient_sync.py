@@ -16,10 +16,16 @@ from typing import List
 
 argparser = argparse.ArgumentParser()
 argparser.add_argument('destdir', help='Destination directory')
+argparser.add_argument('--include', action='append', help='Include pattern', default=[])
+argparser.add_argument('--include-file', action='append', help='File containing list of include patterns', default=[])
 argparser.add_argument('--exclude', action='append', help='Exclude pattern', default=[])
 argparser.add_argument('--exclude-file', action='append', help='File containing list of exclude patterns', default=[])
 
 base_url = 'https://myrient.erista.me/files'
+
+everything_re = re.compile('.*')
+nothing_re = re.compile('$^')
+ignore_line_re = re.compile(r'^\s*(?:#.*)?$')
 
 # Don't match paths with ..
 valid_path_re = re.compile(r'^((?!\.\./)[^/\\]+/)*(?!\.\./)[^/\\]+/?$')
@@ -62,9 +68,7 @@ def list_dir(session: requests.Session, path: str) -> List[FileEntry]:
                     result.append(entry)
     return result
 
-nothing_re = re.compile('$^')
-
-def get_file_list(session: requests.Session, root_dir_path='/', exclude_re=nothing_re) -> List[FileEntry]:
+def get_file_list(session: requests.Session, root_dir_path='/', include_re=everything_re, exclude_re=nothing_re) -> List[FileEntry]:
     dir_queue = collections.deque([root_dir_path])
     dirs_seen = set()
     file_entries = []
@@ -74,29 +78,13 @@ def get_file_list(session: requests.Session, root_dir_path='/', exclude_re=nothi
         for file_entry in list_dir(session, dir_path):
             sub_path = dir_path + file_entry.name
             if sub_path.endswith('/'):
-                if sub_path not in dirs_seen and not exclude_re.match(sub_path):
+                if sub_path not in dirs_seen and include_re.match(sub_path) and not exclude_re.match(sub_path):
                     dirs_seen.add(sub_path)
                     dir_queue.append(sub_path)
-            elif not exclude_re.match(sub_path):
+            elif include_re.match(sub_path) and not exclude_re.match(sub_path):
                 file_entries.append(file_entry)
     file_entries.sort(key=lambda fe: (fe.dirpath, fe.name))
     return file_entries
-
-def compile_exclude_patterns(patterns) -> re.Pattern:
-    if not patterns:
-        return nothing_re
-    return re.compile('|'.join('^/' + re.escape(pattern).replace(r'\*', '[^/]*') + '(?:/.*)?$' for pattern in patterns))
-
-exclude_file_ignore_line_re = re.compile(r'^\s*(?:#.*)?$')
-
-def get_exclude_re(args) -> re.Pattern:
-    excludes = list(args.exclude)
-    for exclude_file in args.exclude_file:
-        with open(exclude_file) as f:
-            for line in f:
-                if not exclude_file_ignore_line_re.match(line):
-                    excludes.append(line.rstrip())
-    return compile_exclude_patterns(excludes)
 
 def format_size(size: int) -> str:
     if size < 1024:
@@ -170,14 +158,55 @@ def download_file_with_retry(session, src_file_path, dest_dir, num_retries=3, re
     print(f'Failed to download {src_file_path}')
     return DownloadStatus.Failed
 
+def compile_include_patterns(patterns) -> re.Pattern:
+    if not patterns:
+        return everything_re
+    parts = []
+    for pattern in patterns:
+        dir_parts = pattern.split('/')[:-1]
+        for i in range(1, len(dir_parts) + 1):
+            sub_dir = '/'.join(dir_parts[:i])
+            parts.append('^/' + re.escape(sub_dir).replace(r'\*', '[^/]*') + '/$')
+        parts.append('^/' + re.escape(pattern).replace(r'\*', '[^/]*') + '(?:/.*)?$')
+    re_pattern = '|'.join(parts)
+    return re.compile(re_pattern)
+
+def compile_exclude_patterns(patterns) -> re.Pattern:
+    if not patterns:
+        return nothing_re
+    parts = []
+    for pattern in patterns:
+        parts.append('^/' + re.escape(pattern).replace(r'\*', '[^/]*') + '(?:/.*)?$')
+    re_pattern = '|'.join(parts)
+    return re.compile(re_pattern)
+
+def get_include_re(args) -> re.Pattern:
+    includes = list(args.include)
+    for include_file in args.include_file:
+        with open(include_file) as f:
+            for line in f:
+                if not ignore_line_re.match(line):
+                    includes.append(line.rstrip())
+    return compile_include_patterns(includes)
+
+def get_exclude_re(args) -> re.Pattern:
+    excludes = list(args.exclude)
+    for exclude_file in args.exclude_file:
+        with open(exclude_file) as f:
+            for line in f:
+                if not ignore_line_re.match(line):
+                    excludes.append(line.rstrip())
+    return compile_exclude_patterns(excludes)
+
 def main():
     try:
         args = argparser.parse_args()
+        include_re = get_include_re(args)
         exclude_re = get_exclude_re(args)
         session = requests.Session()
         session.headers['Accept'] = '*/*'
         session.headers['Accept-Encoding'] = 'gzip, deflate'
-        file_entries = get_file_list(session, exclude_re=exclude_re)
+        file_entries = get_file_list(session, include_re=include_re, exclude_re=exclude_re)
         download_count = 0
         skipped_count = 0
         failed_count = 0
