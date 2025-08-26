@@ -2,7 +2,7 @@
 
 ## Introduction
 
-`myrient-sync` is a program to syncronise [Myrient](https://myrient.erista.me/) to a local directory. It supports exclude patterns so that only the required files will be downloaded.
+`myrient-sync` is a program to syncronise [Myrient](https://myrient.erista.me/) to a local directory. It supports include and exclude patterns so that only the required files will be downloaded.
 
 ## Installation
 
