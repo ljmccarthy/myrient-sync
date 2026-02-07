@@ -28,8 +28,8 @@ everything_re = re.compile('.*')
 nothing_re = re.compile('$^')
 ignore_line_re = re.compile(r'^\s*(?:#.*)?$')
 
-# Don't match paths with ..
-valid_path_re = re.compile(r'^((?!\.\./)[^/\\]+/)*(?!\.\./)[^/\\]+/?$')
+# Don't match paths with .. or .
+valid_path_re = re.compile(r'^((?!\.\.?/)[^/\\]+/)*(?!\.\.?/)[^/\\]+/?$')
 
 @dataclass
 class FileEntry:
